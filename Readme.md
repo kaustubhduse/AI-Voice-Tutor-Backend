@@ -71,7 +71,7 @@ The backend allows children to interact with an AI English tutor through voice. 
 
 ```bash
 # Clone the repository
-git clone <repo_url>
+git clone https://github.com/kaustubhduse/AI-Voice-Tutor-Backend
 cd backend
 
 # Install dependencies
