@@ -25,8 +25,11 @@ const buildPrompt = (userText, mode, roleplayTopic) => {
   }
 
   const historyForPrompt = chatHistory
-    .map((item) => `[INST] Child: ${item.user} [/INST] Genie: ${item.ai}`)
-    .join("\n");
+  .slice(-10) 
+  // Get the last 10 items from the history
+  .map((item) => `[INST] Child: ${item.user} [/INST] Genie: ${item.ai}`)
+  .join("\n");
+    
 
   return `<s>[INST]
 You are SpeakGenie, a helpful and friendly AI English tutor for children aged 6 to 16.
