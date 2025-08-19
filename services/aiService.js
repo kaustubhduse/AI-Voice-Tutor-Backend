@@ -72,8 +72,6 @@ Genie:`;
 /**
  * Generate AI response using Together AI API
  */
-// services/aiService.js
-
 export const generateAIResponse = async (
   userText,
   mode,
@@ -96,8 +94,10 @@ export const generateAIResponse = async (
     );
 
     let aiText = response.data.choices[0].text.trim();
+    // Remove any leftover markers or accidental notes
     aiText = aiText.replace(/### New Message ###/g, "").trim();
 
+    // Save to the appropriate chat history
     const historyKey = `${
       mode === "roleplay" ? roleplayTopic : "free-chat"
     }-${language}`;
@@ -106,8 +106,7 @@ export const generateAIResponse = async (
       { user: userText, ai: aiText },
     ];
 
-    // 👉 return both text + language (important for playback)
-    return { text: aiText, language };
+    return aiText;
   } catch (error) {
     console.error(
       "Error in generateAIResponse:",
