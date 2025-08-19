@@ -176,9 +176,49 @@ audioService -> transcriptionService -> aiService
      Response JSON
 ```
 
+
 * **Audio** → Converted to WAV → Transcribed → AI response → Returned
 * Supports multiple chat modes and roleplay topics
 * Keeps a small session-based chat history
+
+
+## Audio Workflow Diagram
+
+```
+
+User (Frontend)
+      |
+      |  Uploads audio (webm)
+      v
+   [Express API: /api/chat]
+      |
+      |  Multer Middleware
+      |  (temporarily stores audio in uploads/)
+      v
+  Temporary Audio File
+      |
+      |  convertToWav()  (ffmpeg converts to WAV)
+      v
+  Converted WAV File
+      |
+      |  transcribeAudio()  (Whisper/Together AI)
+      v
+  User Text (string)
+      |
+      |  generateAIResponse()  (Together AI model)
+      v
+  AI Response Text
+      |
+      |  Send back to frontend
+      v
+User (Frontend)
+      |
+      |  deleteFile()  (cleanup uploaded + converted files)
+      v
+Temporary storage cleared
+
+
+```
 
 ---
 
