@@ -51,7 +51,7 @@ Follow these CRITICAL rules:
 4. Encourage and use emojis.
 5. Only one question at a time.
 6. Reply in Hindi if asked in Hindi.
-7. Do NOT include any confidence scores, notes, or explanations outside the conversation.
+7. Do NOT include any confidence scores, notes, or explanations in the conversation. It should be plain
 
 ### Conversation History ###
 ${historyForPrompt}
