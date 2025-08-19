@@ -220,5 +220,24 @@ Temporary storage cleared
 
 ```
 
+## Functionality Overview
+
+This project is a voice-based AI English tutor for children. The system captures the child’s voice, understands it, generates a response, and speaks back in a friendly, age-appropriate manner.
+
+| Functionality       | Current Implementation                     |
+|--------------------|-------------------------------------------|
+| Listen             | `MediaRecorder` (Web Audio API)           |
+| Speech-to-Text     | Together AI Whisper                        |
+| AI Response        | Together AI GPT (Mixtral model)           |
+| Text-to-Speech     | Browser TTS (`speechSynthesis`)           |
+
+### How It Works
+
+1. **Listen**: The frontend captures the child’s voice using the browser’s microphone.
+2. **Speech-to-Text**: The recorded audio is sent to Together AI Whisper API to convert speech into text.
+3. **AI Response**: The transcribed text is sent to Together AI GPT (Mixtral model) which generates a friendly, context-aware reply.
+4. **Text-to-Speech**: The AI-generated text is converted back to speech using the browser’s built-in TTS (`speechSynthesis`) for the child to hear.
+
+
 ---
 
