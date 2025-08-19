@@ -34,14 +34,22 @@ const buildPrompt = (userText, mode, roleplayTopic, language) => {
     }
   }
 
-  const historyKey = `${mode === "roleplay" ? roleplayTopic : "free-chat"}-${language}`;
+  const historyKey = `${
+    mode === "roleplay" ? roleplayTopic : "free-chat"
+  }-${language}`;
   const historyForPrompt = (chatHistory[historyKey] || [])
-    .slice(-10) // last 10 messages
-    .map(item => `[INST] Child: ${item.user} [/INST] Genie: ${item.ai}`)
+    .slice(-10)
+    .map((item) => `[INST] Child: ${item.user} [/INST] Genie: ${item.ai}`)
     .join("\n");
 
+  // 👇 Enforce Hindi if hi-IN is selected
+  const languageRule =
+    language === "hi-IN"
+      ? "IMPORTANT: Always respond ONLY in Hindi (हिन्दी), using simple words a child can understand."
+      : "IMPORTANT: Always respond ONLY in English, using simple words a child can understand.";
+
   return `<s>[INST]
-You are SpeakGenie, a helpful and friendly AI English tutor for children aged 6 to 16.
+You are SpeakGenie, a helpful and friendly AI tutor for children aged 6 to 16.
 Your current role is: "${roleDescription}".
 
 Follow these CRITICAL rules:
@@ -50,8 +58,8 @@ Follow these CRITICAL rules:
 3. Stay in character and on topic.
 4. Encourage and use emojis.
 5. Only one question at a time.
-6. Reply in Hindi if asked in Hindi.
-7. Do NOT include any confidence scores, notes, or explanations in the conversation. It should be plain
+6. ${languageRule}
+7. Do NOT include any confidence scores, notes, or explanations. Plain conversation only.
 
 ### Conversation History ###
 ${historyForPrompt}
@@ -64,7 +72,12 @@ Genie:`;
 /**
  * Generate AI response using Together AI API
  */
-export const generateAIResponse = async (userText, mode, roleplayTopic, language = "en-US") => {
+export const generateAIResponse = async (
+  userText,
+  mode,
+  roleplayTopic,
+  language = "en-US"
+) => {
   try {
     const prompt = buildPrompt(userText, mode, roleplayTopic, language);
 
@@ -82,10 +95,12 @@ export const generateAIResponse = async (userText, mode, roleplayTopic, language
 
     let aiText = response.data.choices[0].text.trim();
     // Remove any leftover markers or accidental notes
-    aiText = aiText.replace(/### New Message ###/g, '').trim();
+    aiText = aiText.replace(/### New Message ###/g, "").trim();
 
     // Save to the appropriate chat history
-    const historyKey = `${mode === "roleplay" ? roleplayTopic : "free-chat"}-${language}`;
+    const historyKey = `${
+      mode === "roleplay" ? roleplayTopic : "free-chat"
+    }-${language}`;
     chatHistory[historyKey] = [
       ...(chatHistory[historyKey] || []),
       { user: userText, ai: aiText },
@@ -93,7 +108,10 @@ export const generateAIResponse = async (userText, mode, roleplayTopic, language
 
     return aiText;
   } catch (error) {
-    console.error("Error in generateAIResponse:", error.response?.data || error.message);
+    console.error(
+      "Error in generateAIResponse:",
+      error.response?.data || error.message
+    );
     throw new Error("AI response generation failed");
   }
 };
