@@ -14,8 +14,10 @@ let chatHistory = {
   "At Home-hi-IN": [],
 };
 
-// Build chat messages (instead of a single prompt)
-const buildMessages = (userText, mode, roleplayTopic, language) => {
+/**
+ * Build the prompt for the AI model
+ */
+const buildPrompt = (userText, mode, roleplayTopic, language) => {
   let roleDescription = `You are SpeakGenie, a friendly AI English tutor for a child.`;
 
   if (mode === "roleplay") {
@@ -29,75 +31,88 @@ const buildMessages = (userText, mode, roleplayTopic, language) => {
       case "At Home":
         roleDescription = `You are a caring parent. The child just came home. Start by asking about their day or who they live with.`;
         break;
-      default:
-        break;
     }
   }
 
-  const historyKey = `${mode === "roleplay" ? roleplayTopic : "free-chat"}-${language}`;
-  const history = (chatHistory[historyKey] || []).slice(-10); // last 10 turns
+  const historyKey = `${
+    mode === "roleplay" ? roleplayTopic : "free-chat"
+  }-${language}`;
+  const historyForPrompt = (chatHistory[historyKey] || [])
+    .slice(-10)
+    .map((item) => `[INST] Child: ${item.user} [/INST] Genie: ${item.ai}`)
+    .join("\n");
 
+  // 👇 Enforce Hindi if hi-IN is selected
   const languageRule =
     language === "hi-IN"
-      ? "Always respond ONLY in Hindi (हिन्दी), using simple words a child can understand."
-      : "Always respond ONLY in English, using simple words a child can understand.";
+      ? "IMPORTANT: Always respond ONLY in Hindi (हिन्दी), using simple words a child can understand."
+      : "IMPORTANT: Always respond ONLY in English, using simple words a child can understand.";
 
-  const system = `You are SpeakGenie, a helpful and friendly AI tutor for children aged 6 to 16.
+  return `<s>[INST]
+You are SpeakGenie, a helpful and friendly AI tutor for children aged 6 to 16.
 Your current role is: "${roleDescription}".
 
 Follow these CRITICAL rules:
-1) Your entire response MUST be a complete thought in 1 or 2 short sentences.
-2) NEVER end your response mid-sentence.
-3) Stay in character and on topic.
-4) Encourage and use emojis.
-5) Only one question at a time.
-6) ${languageRule}
-7) Do NOT include any confidence scores, notes, or explanations. Plain conversation only.`;
+1. Your entire response MUST be a complete thought in 1 or 2 short sentences.
+2. NEVER end your response mid-sentence.
+3. Stay in character and on topic.
+4. Encourage and use emojis.
+5. Only one question at a time.
+6. ${languageRule}
+7. Do NOT include any confidence scores, notes, or explanations. Plain conversation only.
 
-  const messages = [{ role: "system", content: system }];
+### Conversation History ###
+${historyForPrompt}
 
-  // Add past conversation
-  for (const turn of history) {
-    messages.push({ role: "user", content: turn.user });
-    messages.push({ role: "assistant", content: turn.ai });
-  }
-
-  // Current user message
-  messages.push({ role: "user", content: userText });
-
-  return { messages, historyKey };
+Child: "${userText}"
+[/INST]
+Genie:`;
 };
 
 /**
- * Generate AI response using Together AI /chat/completions with messages
+ * Generate AI response using Together AI API
  */
-export const generateAIResponse = async (userText, mode, roleplayTopic, language = "en-US") => {
+// services/aiService.js
+
+export const generateAIResponse = async (
+  userText,
+  mode,
+  roleplayTopic,
+  language = "en-US"
+) => {
   try {
-    const { messages, historyKey } = buildMessages(userText, mode, roleplayTopic, language);
+    const prompt = buildPrompt(userText, mode, roleplayTopic, language);
 
     const response = await axios.post(
       `${togetherAiUrl}/chat/completions`,
       {
         model: "mistralai/Mixtral-8x7B-Instruct-v0.1",
-        temperature: 0.7,
         max_tokens: 80,
-        messages, // ✅ use chat messages
+        prompt,
+        temperature: 0.7,
+        stop: ["</s>", "[INST]", "Child:"],
       },
       { headers: { ...togetherAiHeaders, "Content-Type": "application/json" } }
     );
 
-    const aiText = response?.data?.choices?.[0]?.message?.content?.trim() || "";
+    let aiText = response.data.choices[0].text.trim();
+    aiText = aiText.replace(/### New Message ###/g, "").trim();
 
-    // Save to the appropriate chat history
+    const historyKey = `${
+      mode === "roleplay" ? roleplayTopic : "free-chat"
+    }-${language}`;
     chatHistory[historyKey] = [
       ...(chatHistory[historyKey] || []),
       { user: userText, ai: aiText },
     ];
 
-    // Keep return shape the same as before for your route that uses this
-    return aiText;
+    // 👉 return both text + language (important for playback)
+    return { text: aiText, language };
   } catch (error) {
-    console.error("Error in generateAIResponse:", error.response?.data || error.message);
+    console.error(
+      "Error in generateAIResponse:",
+      error.response?.data || error.message
+    );
     throw new Error("AI response generation failed");
   }
 };
