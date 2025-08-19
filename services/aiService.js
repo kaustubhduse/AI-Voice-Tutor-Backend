@@ -2,7 +2,6 @@
 import axios from "axios";
 import { togetherAiUrl, togetherAiHeaders } from "../config/togetherAI.js";
 
-// Chat history separated by role and language
 let chatHistory = {
   "free-chat-en-US": [],
   "At School-en-US": [],
@@ -14,10 +13,7 @@ let chatHistory = {
   "At Home-hi-IN": [],
 };
 
-/**
- * Build the prompt for the AI model
- */
-const buildPrompt = (userText, mode, roleplayTopic, language) => {
+const buildMessages = (userText, mode, roleplayTopic, language) => {
   let roleDescription = `You are SpeakGenie, a friendly AI English tutor for a child.`;
 
   if (mode === "roleplay") {
@@ -34,73 +30,59 @@ const buildPrompt = (userText, mode, roleplayTopic, language) => {
     }
   }
 
-  const historyKey = `${
-    mode === "roleplay" ? roleplayTopic : "free-chat"
-  }-${language}`;
+  const historyKey = `${mode === "roleplay" ? roleplayTopic : "free-chat"}-${language}`;
   const historyForPrompt = (chatHistory[historyKey] || [])
     .slice(-10)
-    .map((item) => `[INST] Child: ${item.user} [/INST] Genie: ${item.ai}`)
+    .map(item => `Child: ${item.user}\nGenie: ${item.ai}`)
     .join("\n");
 
-  // 👇 Enforce Hindi if hi-IN is selected
   const languageRule =
     language === "hi-IN"
-      ? "IMPORTANT: Always respond ONLY in Hindi (हिन्दी), using simple words a child can understand."
-      : "IMPORTANT: Always respond ONLY in English, using simple words a child can understand.";
+      ? "You MUST always reply ONLY in Hindi (हिन्दी script). Do not use English words unless they are proper nouns."
+      : "You MUST always reply ONLY in English. Keep sentences short and simple.";
 
-  return `<s>[INST]
-You are SpeakGenie, a helpful and friendly AI tutor for children aged 6 to 16.
-Your current role is: "${roleDescription}".
+  return [
+    {
+      role: "system",
+      content: `You are SpeakGenie, a helpful and friendly AI tutor for children aged 6 to 16. 
+Your role: ${roleDescription} 
 
-Follow these CRITICAL rules:
-1. Your entire response MUST be a complete thought in 1 or 2 short sentences.
-2. NEVER end your response mid-sentence.
-3. Stay in character and on topic.
-4. Encourage and use emojis.
-5. Only one question at a time.
-6. ${languageRule}
-7. Do NOT include any confidence scores, notes, or explanations. Plain conversation only.
-
-### Conversation History ###
-${historyForPrompt}
-
-Child: "${userText}"
-[/INST]
-Genie:`;
+Rules:
+1. Keep answers to 1–2 short sentences.
+2. Encourage with emojis 🎉🙂.
+3. Only one question at a time.
+4. ${languageRule}
+5. No explanations or meta-text, only direct conversation.`,
+    },
+    {
+      role: "system",
+      content: `Conversation so far:\n${historyForPrompt}`,
+    },
+    {
+      role: "user",
+      content: `Child: ${userText}`,
+    },
+  ];
 };
 
-/**
- * Generate AI response using Together AI API
- */
-export const generateAIResponse = async (
-  userText,
-  mode,
-  roleplayTopic,
-  language = "en-US"
-) => {
+export const generateAIResponse = async (userText, mode, roleplayTopic, language = "en-US") => {
   try {
-    const prompt = buildPrompt(userText, mode, roleplayTopic, language);
+    const messages = buildMessages(userText, mode, roleplayTopic, language);
 
     const response = await axios.post(
       `${togetherAiUrl}/chat/completions`,
       {
         model: "mistralai/Mixtral-8x7B-Instruct-v0.1",
+        messages,
         max_tokens: 80,
-        prompt,
         temperature: 0.7,
-        stop: ["</s>", "[INST]", "Child:"],
       },
       { headers: { ...togetherAiHeaders, "Content-Type": "application/json" } }
     );
 
-    let aiText = response.data.choices[0].text.trim();
-    // Remove any leftover markers or accidental notes
-    aiText = aiText.replace(/### New Message ###/g, "").trim();
+    let aiText = response.data.choices[0].message.content.trim();
 
-    // Save to the appropriate chat history
-    const historyKey = `${
-      mode === "roleplay" ? roleplayTopic : "free-chat"
-    }-${language}`;
+    const historyKey = `${mode === "roleplay" ? roleplayTopic : "free-chat"}-${language}`;
     chatHistory[historyKey] = [
       ...(chatHistory[historyKey] || []),
       { user: userText, ai: aiText },
@@ -108,10 +90,7 @@ export const generateAIResponse = async (
 
     return aiText;
   } catch (error) {
-    console.error(
-      "Error in generateAIResponse:",
-      error.response?.data || error.message
-    );
+    console.error("Error in generateAIResponse:", error.response?.data || error.message);
     throw new Error("AI response generation failed");
   }
 };
