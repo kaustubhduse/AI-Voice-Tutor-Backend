@@ -45,7 +45,7 @@ const buildPrompt = (userText, mode, roleplayTopic, language) => {
   // 👇 Enforce Hindi if hi-IN is selected
   const languageRule =
     language === "hi-IN"
-      ? "IMPORTANT: Always respond ONLY in Hindi (हिन्दी), using simple words a child can understand."
+      ? "IMPORTANT: Always respond ONLY in Hindi (Devnagari script हिन्दी), using simple words a child can understand."
       : "IMPORTANT: Always respond ONLY in English, using simple words a child can understand.";
 
   return `<s>[INST]
