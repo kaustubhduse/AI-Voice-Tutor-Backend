@@ -3,34 +3,40 @@ import { transcribeAudio } from "../services/transcriptionService.js";
 import { generateAIResponse, generateInitiationResponse } from "../services/aiService.js";
 import { deleteFile } from "../utils/cleanUp.js";
 import path from "path";
+import fs from "fs";
 
 export const handleChat = async (req, res) => {
   const audioFile = req.file;
   if (!audioFile) {
     return res.status(400).json({ error: "No audio file uploaded." });
   }
-  const convertedFilePath = path.join(
-    audioFile.destination,
-    `${audioFile.filename}.wav`
-  );
+  const convertedFilePath = path.join(audioFile.destination, `${audioFile.filename}.wav`);
 
   try {
     const { mode, roleplayTopic, language, history } = req.body;
-    await convertToWav(audioFile.path, convertedFilePath);
-    const userText = await transcribeAudio(convertedFilePath, language);
-    const aiText = await generateAIResponse(userText, mode, roleplayTopic, language, JSON.parse(history || '[]'));
     
+    // Correctly call convertToWav with the input and full output path
+    await convertToWav(audioFile.path, convertedFilePath);
+    
+    const userText = await transcribeAudio(convertedFilePath, language);
+    console.log(`User said: ${userText}`);
+
+    const aiText = await generateAIResponse(userText, mode, roleplayTopic, language, JSON.parse(history || '[]'));
+    console.log(`AI says: ${aiText}`);
+
     res.json({ userText, aiReply: aiText });
+
   } catch (error) {
     console.error("Error in handleChat:", error.message);
     res.status(500).json({ error: "Failed to process chat request." });
   } finally {
+    // Now that 'fs' is imported, this cleanup will work correctly
     fs.unlink(audioFile.path, () => {});
     fs.unlink(convertedFilePath, () => {});
   }
 };
 
-// Handles starting a new roleplay conversation
+// This function handles starting a new roleplay conversation
 export const handleInitiateChat = async (req, res) => {
     try {
         const { language, mode, roleplayTopic } = req.body;

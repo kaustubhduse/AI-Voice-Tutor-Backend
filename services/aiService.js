@@ -9,23 +9,32 @@ const togetherAiHeaders = {
 
 const buildChatPrompt = (language, mode, roleplayTopic, history, userText) => {
   if (language === 'hi-IN') {
-    let roleDescription = `आप स्पीकजीनी हैं, एक बच्चे के लिए एक दोस्ताना एआई हिंदी शिक्षक।`;
+    let roleDescription = `You are SpeakGenie, a friendly AI Hindi tutor for a child.`;
     if (mode === 'roleplay') {
       switch (roleplayTopic) {
-        case 'At the Store': roleDescription = `आप एक हंसमुख दुकानदार हैं।`; break;
-        case 'At School': roleDescription = `आप एक दयालु शिक्षक हैं।`; break;
-        case 'At Home': roleDescription = `आप एक देखभाल करने वाले माता-पिता हैं।`; break;
+        case 'At the Store': roleDescription = `You are a cheerful shopkeeper.`; break;
+        case 'At School': roleDescription = `You are a kind teacher.`; break;
+        case 'At Home': roleDescription = `You are a caring parent.`; break;
       }
     }
-    const historyForPrompt = history.slice(-10).map(item => `${item.sender === 'user' ? 'बच्चा' : 'जीनी'}: ${item.text}`).join('\n');
-    return `<s>[INST] ### सिस्टम निर्देश ###
-आप स्पीकजीनी हैं, एक सहायक और मैत्रीपूर्ण एआई हिंदी शिक्षक। आपकी वर्तमान भूमिका है: "${roleDescription}".
-सख्त नियमों का पालन करें: 1. केवल शुद्ध देवनागरी हिंदी में जवाब दें। अंग्रेजी शब्दों का प्रयोग न करें। 2. अपने उत्तर बहुत छोटे और सरल रखें। 3. अपनी भूमिका में रहें और इमोजी का प्रयोग करें।
-### बातचीत का इतिहास ###
+    const historyForPrompt = history.slice(-10).map(item => `${item.sender === 'user' ? 'Child' : 'Genie'}: ${item.text}`).join('\n');
+    return `<s>[INST] ### System Instructions ###
+You are SpeakGenie, a friendly AI tutor. Your current role is: "${roleDescription}".
+Follow these CRITICAL rules:
+1.  **You MUST reply in Hindi, but written ONLY in the English alphabet (Roman script).** For example: 'Aapka swagat hai', NOT 'आपका स्वागत है'.
+2.  **NEVER provide English translations or meanings of Hindi words.** Your response must be 100% conversational Hindi in Roman script.
+3.  Your response MUST be a complete thought in 1 or 2 very short sentences. NEVER end mid-sentence.
+4.  Do NOT include notes or confidence scores.
+5.  Stay in character, be encouraging, and use emojis.
+
+### Conversation History ###
 ${historyForPrompt}
-### नया संदेश ###
-बच्चा: "${userText}" [/INST]\nजीनी:`;
-  } else {
+### Child's New Message ###
+"${userText}" [/INST]
+Genie:`;
+  } 
+  else {
+    // English Prompt
     let roleDescription = `You are SpeakGenie, a friendly AI English tutor for a child.`;
     if (mode === 'roleplay') {
       switch (roleplayTopic) {
@@ -37,7 +46,11 @@ ${historyForPrompt}
     const historyForPrompt = history.slice(-10).map(item => `${item.sender === 'user' ? 'Child' : 'Genie'}: ${item.text}`).join('\n');
     return `<s>[INST] ### System Instructions ###
 You are SpeakGenie, a friendly AI English tutor. Your current role is: "${roleDescription}".
-Follow these rules: 1. Respond in one or two simple sentences. 2. Stay on topic, in character, and be encouraging. 3. Use emojis.
+Follow these CRITICAL rules:
+1.  **Your response MUST ONLY be the conversational dialogue for your character, "Genie".** Do NOT include notes, confidence scores, or explanations.
+2.  Your response must be a complete thought in 1 or 2 very short sentences. NEVER end mid-sentence.
+3.  Stay on topic, in character, and be encouraging. Use emojis.
+
 ### Conversation History ###
 ${historyForPrompt}
 ### Child's New Message ###
@@ -45,27 +58,16 @@ ${historyForPrompt}
   }
 };
 
-const buildInitiationPrompt = (language, mode, roleplayTopic) => {
-    if (language === 'hi-IN') {
-        let roleDescription = `आप स्पीकजीनी हैं।`;
-        if (mode === 'roleplay') {
-            switch (roleplayTopic) {
-                case 'At the Store': roleDescription = `आप एक हंसमुख दुकानदार हैं।`; break;
-                case 'At School': roleDescription = `आप एक दयालु शिक्षक हैं।`; break;
-                case 'At Home': roleDescription = `आप एक देखभाल करने वाले माता-पिता हैं।`; break;
-            }
-        }
-        return `<s>[INST] आपकी भूमिका है: "${roleDescription}". एक अभिवादन के साथ बातचीत शुरू करें। इमोजी का प्रयोग करें।[/INST]\nजीनी:`;
-    } else {
-        let roleDescription = `You are SpeakGenie.`;
-        if (mode === 'roleplay') {
-            switch (roleplayTopic) {
-                case 'At the Store': roleDescription = `You are a cheerful shopkeeper.`; break;
-                case 'At School': roleDescription = `You are a kind teacher.`; break;
-                case 'At Home': roleDescription = `You are a caring parent.`; break;
-            }
-        }
-        return `<s>[INST] Your role is: "${roleDescription}". Start the conversation with a friendly, one-sentence greeting. Use an emoji.[/INST]\nGenie:`;
+const initiationLines = {
+    'en-US': {
+        'At School': 'Good morning! What’s your name? 🏫',
+        'At the Store': 'Welcome! What do you want to buy today? 🛒',
+        'At Home': 'Who do you live with? 👨‍👩‍👧',
+    },
+    'hi-IN': {
+        'At School': 'Namaste! Aapka naam kya hai? 🏫',
+        'At the Store': 'Swagat hai! Aap aaj kya khareedna chahte hain? 🛒',
+        'At Home': 'Aap kiske saath rehte hain? 👨‍👩‍👧',
     }
 };
 
@@ -93,17 +95,23 @@ export const generateAIResponse = async (userText, mode, roleplayTopic, language
   }, {
     headers: { ...togetherAiHeaders, 'Content-Type': 'application/json' }
   });
-  return response.data.choices[0].text.trim();
+
+  let aiText = response.data.choices[0].text.trim();
+
+  // To trim incomplete sentences
+  const lastPunctuation = Math.max(aiText.lastIndexOf("."), aiText.lastIndexOf("?"), aiText.lastIndexOf("!"));
+  if (lastPunctuation > -1 && lastPunctuation < aiText.length - 1) {
+    aiText = aiText.substring(0, lastPunctuation + 1);
+  }
+  return aiText;
 };
 
+// This function is now much simpler and more reliable
 export const generateInitiationResponse = async (language, mode, roleplayTopic) => {
-    const prompt = buildInitiationPrompt(language, mode, roleplayTopic);
-    const response = await axios.post(`${togetherAiUrl}/chat/completions`, {
-      model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
-      max_tokens: 80, 
-      prompt: prompt,
-      temperature: 0.7,
-      stop: ["</s>", "[INST]"],
-    }, { headers: { ...togetherAiHeaders, 'Content-Type': 'application/json' } });
-    return response.data.choices[0].text.trim();
+    if (mode === 'roleplay') {
+        // Simply look up the correct starting line from our pre-defined list
+        return initiationLines[language]?.[roleplayTopic] || "Let's start our roleplay!";
+    }
+    return "Hello! How can I help you today?"; 
+    // Default for free chat if ever needed
 };
