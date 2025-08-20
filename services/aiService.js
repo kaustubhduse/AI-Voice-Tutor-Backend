@@ -1,127 +1,105 @@
-import axios from 'axios';
-import fs from 'fs';
-import FormData from 'form-data';
+// services/aiService.js
+import axios from "axios";
+import { togetherAiUrl, togetherAiHeaders } from "../config/togetherAI.js";
 
-// Assuming you have a config file or have these defined elsewhere
-const togetherAiUrl = 'https://api.together.xyz/v1';
-const togetherAiHeaders = {
-  'Authorization': `Bearer ${process.env.TOGETHER_API_KEY}`,
+// Chat history separated by role and language
+let chatHistory = {
+  "free-chat-en-US": [],
+  "At School-en-US": [],
+  "At the Store-en-US": [],
+  "At Home-en-US": [],
+  "free-chat-hi-IN": [],
+  "At School-hi-IN": [],
+  "At the Store-hi-IN": [],
+  "At Home-hi-IN": [],
 };
 
 /**
- * Builds the detailed prompt for an ongoing conversation.
- * It is STATELESS - it receives history as a parameter.
+ * Build the prompt for the AI model
  */
-const buildChatPrompt = (language, mode, roleplayTopic, history, userText) => {
-  if (language === 'hi-IN') {
-    let roleDescription = `आप स्पीकजीनी हैं, एक बच्चे के लिए एक दोस्ताना एआई हिंदी शिक्षक।`;
-    if (mode === 'roleplay') {
-      switch (roleplayTopic) {
-        case 'At the Store': roleDescription = `आप एक हंसमुख दुकानदार हैं।`; break;
-        case 'At School': roleDescription = `आप एक दयालु शिक्षक हैं।`; break;
-        case 'At Home': roleDescription = `आप एक देखभाल करने वाले माता-पिता हैं।`; break;
-      }
+const buildPrompt = (userText, mode, roleplayTopic, language) => {
+  let roleDescription = `You are SpeakGenie, a friendly AI English tutor for a child.`;
+
+  if (mode === "roleplay") {
+    switch (roleplayTopic) {
+      case "At the Store":
+        roleDescription = `You are a cheerful shopkeeper. The child is your customer. Start by greeting them and asking what they want to buy.`;
+        break;
+      case "At School":
+        roleDescription = `You are a kind teacher. The child is a new student. Start by greeting them and asking their name.`;
+        break;
+      case "At Home":
+        roleDescription = `You are a caring parent. The child just came home. Start by asking about their day or who they live with.`;
+        break;
     }
-    const historyForPrompt = history.slice(-10).map(item => `${item.sender === 'user' ? 'बच्चा' : 'जीनी'}: ${item.text}`).join('\n');
-    return `<s>[INST] ### सिस्टम निर्देश ###
-आप स्पीकजीनी हैं, एक सहायक और मैत्रीपूर्ण एआई हिंदी शिक्षक। आपकी वर्तमान भूमिका है: "${roleDescription}".
-सख्त नियमों का पालन करें: 1. केवल शुद्ध देवनागरी हिंदी में जवाब दें। अंग्रेजी शब्दों का प्रयोग न करें। 2. अपने उत्तर बहुत छोटे और सरल रखें। 3. अपनी भूमिका में रहें और इमोजी का प्रयोग करें।
-### बातचीत का इतिहास ###
-${historyForPrompt}
-### नया संदेश ###
-बच्चा: "${userText}" [/INST]\nजीनी:`;
-  } else {
-    // English Prompt
-    let roleDescription = `You are SpeakGenie, a friendly AI English tutor for a child.`;
-    if (mode === 'roleplay') {
-      switch (roleplayTopic) {
-        case 'At the Store': roleDescription = `You are a cheerful shopkeeper.`; break;
-        case 'At School': roleDescription = `You are a kind teacher.`; break;
-        case 'At Home': roleDescription = `You are a caring parent.`; break;
-      }
-    }
-    const historyForPrompt = history.slice(-10).map(item => `${item.sender === 'user' ? 'Child' : 'Genie'}: ${item.text}`).join('\n');
-    return `<s>[INST] ### System Instructions ###
-You are SpeakGenie, a friendly AI English tutor. Your current role is: "${roleDescription}".
-Follow these rules: 1. Respond in one or two simple sentences. 2. Stay on topic, in character, and be encouraging. 3. Use emojis.
+  }
+
+  const historyKey = `${mode === "roleplay" ? roleplayTopic : "free-chat"}-${language}`;
+  const historyForPrompt = (chatHistory[historyKey] || [])
+    .slice(-10)
+    .map(item => `[INST] Child: ${item.user} [/INST] Genie: ${item.ai}`)
+    .join("\n");
+
+  // 👇 Enforce Hindi if hi-IN is selected
+  const languageRule = language === "hi-IN"
+    ? "IMPORTANT: Always respond ONLY in Hindi (हिन्दी), using simple words a child can understand."
+    : "IMPORTANT: Always respond ONLY in English, using simple words a child can understand.";
+
+  return `<s>[INST]
+You are SpeakGenie, a helpful and friendly AI tutor for children aged 6 to 16.
+Your current role is: "${roleDescription}".
+
+Follow these CRITICAL rules:
+1. Your entire response MUST be a complete thought in 1 or 2 short sentences.
+2. NEVER end your response mid-sentence.
+3. Stay in character and on topic.
+4. Encourage and use emojis.
+5. Only one question at a time.
+6. ${languageRule}
+7. Do NOT include any confidence scores, notes, or explanations. Plain conversation only.
+
 ### Conversation History ###
 ${historyForPrompt}
-### Child's New Message ###
-"${userText}" [/INST]\nGenie:`;
+
+Child: "${userText}"
+[/INST]
+Genie:`;
+};
+
+
+/**
+ * Generate AI response using Together AI API
+ */
+export const generateAIResponse = async (userText, mode, roleplayTopic, language = "en-US") => {
+  try {
+    const prompt = buildPrompt(userText, mode, roleplayTopic, language);
+
+    const response = await axios.post(
+      `${togetherAiUrl}/chat/completions`,
+      {
+        model: "mistralai/Mixtral-8x7B-Instruct-v0.1",
+        max_tokens: 80,
+        prompt,
+        temperature: 0.7,
+        stop: ["</s>", "[INST]", "Child:"],
+      },
+      { headers: { ...togetherAiHeaders, "Content-Type": "application/json" } }
+    );
+
+    let aiText = response.data.choices[0].text.trim();
+    // Remove any leftover markers or accidental notes
+    aiText = aiText.replace(/### New Message ###/g, '').trim();
+
+    // Save to the appropriate chat history
+    const historyKey = `${mode === "roleplay" ? roleplayTopic : "free-chat"}-${language}`;
+    chatHistory[historyKey] = [
+      ...(chatHistory[historyKey] || []),
+      { user: userText, ai: aiText },
+    ];
+
+    return aiText;
+  } catch (error) {
+    console.error("Error in generateAIResponse:", error.response?.data || error.message);
+    throw new Error("AI response generation failed");
   }
-};
-
-/**
- * Builds the simple prompt for initiating a new conversation.
- */
-const buildInitiationPrompt = (language, mode, roleplayTopic) => {
-  if (language === 'hi-IN') {
-    let roleDescription = `आप स्पीकजीनी हैं।`;
-    if (mode === 'roleplay') {
-      switch (roleplayTopic) {
-        case 'At the Store': roleDescription = `आप एक हंसमुख दुकानदार हैं।`; break;
-        case 'At School': roleDescription = `आप एक दयालु शिक्षक हैं।`; break;
-        case 'At Home': roleDescription = `आप एक देखभाल करने वाले माता-पिता हैं।`; break;
-      }
-    }
-    return `<s>[INST] आपकी भूमिका है: "${roleDescription}". एक अभिवादन के साथ बातचीत शुरू करें। इमोजी का प्रयोग करें।[/INST]\nजीनी:`;
-  } else {
-    let roleDescription = `You are SpeakGenie.`;
-    if (mode === 'roleplay') {
-      switch (roleplayTopic) {
-        case 'At the Store': roleDescription = `You are a cheerful shopkeeper.`; break;
-        case 'At School': roleDescription = `You are a kind teacher.`; break;
-        case 'At Home': roleDescription = `You are a caring parent.`; break;
-      }
-    }
-    return `<s>[INST] Your role is: "${roleDescription}". Start the conversation with a friendly, one-sentence greeting. Use an emoji.[/INST]\nGenie:`;
-  }
-};
-
-/**
- * Transcribes audio using the Whisper API.
- */
-export const transcribeAudio = async (filePath, language) => {
-  const formData = new FormData();
-  formData.append('model', 'openai/whisper-large-v3');
-  formData.append('file', fs.createReadStream(filePath));
-  if (language === 'hi-IN') {
-    formData.append('language', 'hi');
-  }
-  const response = await axios.post(`${togetherAiUrl}/audio/transcriptions`, formData, {
-    headers: { ...formData.getHeaders(), ...togetherAiHeaders },
-  });
-  return response.data.text.trim();
-};
-
-/**
- * Generates a response for an ongoing conversation.
- */
-export const generateAIResponse = async (userText, mode, roleplayTopic, language, history) => {
-  const prompt = buildChatPrompt(language, mode, roleplayTopic, history, userText);
-  const response = await axios.post(`${togetherAiUrl}/chat/completions`, {
-    model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
-    max_tokens: 80,
-    prompt,
-    temperature: 0.7,
-    stop: ["</s>", "[INST]", "Child:", "बच्चा:"],
-  }, {
-    headers: { ...togetherAiHeaders, 'Content-Type': 'application/json' }
-  });
-  return response.data.choices[0].text.trim();
-};
-
-/**
- * Generates the first response to start a new conversation.
- */
-export const generateInitiationResponse = async (language, mode, roleplayTopic) => {
-    const prompt = buildInitiationPrompt(language, mode, roleplayTopic);
-    const response = await axios.post(`${togetherAiUrl}/chat/completions`, {
-      model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
-      max_tokens: 80, 
-      prompt: prompt,
-      temperature: 0.7,
-      stop: ["</s>", "[INST]"],
-    }, { headers: { ...togetherAiHeaders, 'Content-Type': 'application/json' } });
-    return response.data.choices[0].text.trim();
 };
