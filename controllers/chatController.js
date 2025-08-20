@@ -15,8 +15,8 @@ export const handleChat = async (req, res) => {
     // Convert → Transcribe → Generate AI Reply
     await convertToWav(audioFile.path, audioFile.destination, audioFile.filename);
     const userText = await transcribeAudio(convertedFilePath);
-    const { mode, roleplayTopic } = req.body;
-    const aiText = await generateAIResponse(userText, mode, roleplayTopic);
+    const { mode, roleplayTopic, language } = req.body;
+    const aiText = await generateAIResponse(userText, mode, roleplayTopic, language);
 
     res.json({ userText, aiReply: aiText });
   } catch (error) {
