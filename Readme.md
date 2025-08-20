@@ -48,9 +48,9 @@ The backend allows children to interact with an AI English tutor through voice. 
 
 ---
 
-## Tech Stack
+# Tech Stack
 
-# Backend
+## Backend
 - **Core:** Node.js, Express.js  
 - **Middleware:** CORS, Multer (for file uploads), Dotenv (for environment variables)  
 - **Audio Processing:** FFmpeg (via `fluent-ffmpeg` library)  
@@ -59,7 +59,7 @@ The backend allows children to interact with an AI English tutor through voice. 
   - Whisper → Speech-to-Text (STT)  
   - Mixtral → Chat / Conversation AI  
 
-# Frontend
+## Frontend
 - **Core:** React.js  
 - **Styling:** Tailwind CSS  
 - **UI & Components:** Headless UI, Heroicons  
