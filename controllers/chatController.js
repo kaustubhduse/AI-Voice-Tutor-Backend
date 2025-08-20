@@ -15,7 +15,6 @@ export const handleChat = async (req, res) => {
   try {
     const { mode, roleplayTopic, language, history } = req.body;
     
-    // Correctly call convertToWav with the input and full output path
     await convertToWav(audioFile.path, convertedFilePath);
     
     const userText = await transcribeAudio(convertedFilePath, language);
@@ -30,7 +29,6 @@ export const handleChat = async (req, res) => {
     console.error("Error in handleChat:", error.message);
     res.status(500).json({ error: "Failed to process chat request." });
   } finally {
-    // Now that 'fs' is imported, this cleanup will work correctly
     fs.unlink(audioFile.path, () => {});
     fs.unlink(convertedFilePath, () => {});
   }
