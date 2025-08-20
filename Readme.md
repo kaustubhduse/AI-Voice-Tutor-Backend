@@ -241,3 +241,23 @@ This project is a voice-based AI English tutor for children. The system captures
 
 ---
 
+## Limitations
+
+1. **Language Output**
+   - The AI model currently **cannot reliably generate responses in Hindi, Marathi or any other native language**.
+   - All textual responses are primarily in **English**, even if a different language is selected in the UI.
+
+2. **Voice Output**
+   - Text-to-speech (TTS) **supports Hindi, Marathi voices**, so the AI’s English responses can be read aloud in the selected language.
+   - This means the child will **hear the response in the chosen language**, but the underlying text remains in English.
+
+3. **Prompt Limitations**
+   - AI behavior depends on the prompt and recent conversation history.
+   - The AI may occasionally **repeat phrases** or fail to fully stay in the assigned role.
+
+5. **Token/Message Limits**
+   - The Together AI API may truncate longer conversations due to **max token limits**, so older messages may not influence AI responses.
+
+> ⚠️ **Note:** If you select Hindi, Marathi, or Gujarati, the AI will speak in that language, but the text response will remain in English.
+
+---
