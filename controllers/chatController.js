@@ -1,10 +1,12 @@
 import path from 'path';
 import fs from 'fs';
-import { convertToWav } from '../utils/audioConverter.js';
-// Import all necessary functions from your service
-import { transcribeAudio, generateAIResponse, generateInitiationResponse } from '../api/togetherApi.js';
+// These imports should match YOUR file structure
+import { convertToWav } from '../utils/audioConverter.js'; 
+import { transcribeAudio } from '../services/transcriptionService.js';
+import { generateAIResponse, generateInitiationResponse } from '../services/aiService.js';
+import { deleteFile } from '../utils/cleanUp.js';
 
-// This function handles ongoing chat messages that include an audio file
+// This function handles existing conversations
 export const handleChat = async (req, res) => {
   const audioFile = req.file;
   if (!audioFile) {
@@ -13,33 +15,27 @@ export const handleChat = async (req, res) => {
   const convertedFilePath = path.join(audioFile.destination, `${audioFile.filename}.wav`);
 
   try {
-    // 1. Convert Audio
     await convertToWav(audioFile.path, convertedFilePath);
     
-    // 2. Transcribe Audio
-    const { mode, roleplayTopic, language, history } = req.body; // Correctly get history
+    const { mode, roleplayTopic, language, history } = req.body;
     const userText = await transcribeAudio(convertedFilePath, language);
     console.log(`User said: ${userText}`);
 
-    // 3. Get AI Response
-    // Pass the history to the service so the AI has context
+    // Pass the history from the frontend to the service
     const aiText = await generateAIResponse(userText, mode, roleplayTopic, language, JSON.parse(history || '[]'));
     console.log(`AI says: ${aiText}`);
 
-    // 4. Send Response
     res.json({ userText, aiReply: aiText });
-
   } catch (error) {
     console.error("Error in handleChat:", error.message);
     res.status(500).json({ error: "Failed to process chat request." });
   } finally {
-    // 5. Clean up files
-    fs.unlink(audioFile.path, () => {});
-    fs.unlink(convertedFilePath, () => {});
+    deleteFile(audioFile.path);
+    deleteFile(convertedFilePath);
   }
 };
 
-// NEW: This function handles starting a conversation, without an audio file
+// NEW function to handle starting a conversation
 export const handleInitiateChat = async (req, res) => {
     try {
         const { language, mode, roleplayTopic } = req.body;
