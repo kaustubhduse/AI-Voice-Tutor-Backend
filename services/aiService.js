@@ -1,7 +1,6 @@
-import dotenv from "dotenv";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-dotenv.config();
+// services/aiService.js
+import axios from "axios";
+import { togetherAiUrl, togetherAiHeaders } from "../config/togetherAI.js";
 
 // Chat history separated by role and language
 let chatHistory = {
@@ -13,90 +12,94 @@ let chatHistory = {
   "At School-hi-IN": [],
   "At the Store-hi-IN": [],
   "At Home-hi-IN": [],
-  "free-chat-mr-IN": [],
-  "At School-mr-IN": [],
-  "free-chat-gu-IN": [],
-  "At School-gu-IN": [],
 };
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-// Build the prompt
+/**
+ * Build the prompt for the AI model
+ */
 const buildPrompt = (userText, mode, roleplayTopic, language) => {
   let roleDescription = `You are SpeakGenie, a friendly AI English tutor for a child.`;
 
   if (mode === "roleplay") {
     switch (roleplayTopic) {
       case "At the Store":
-        roleDescription = `You are a cheerful shopkeeper. The child is your customer.`;
+        roleDescription = `You are a cheerful shopkeeper. The child is your customer. Start by greeting them and asking what they want to buy.`;
         break;
       case "At School":
-        roleDescription = `You are a kind teacher. The child is a new student.`;
+        roleDescription = `You are a kind teacher. The child is a new student. Start by greeting them and asking their name.`;
         break;
       case "At Home":
-        roleDescription = `You are a caring parent. The child just came home.`;
+        roleDescription = `You are a caring parent. The child just came home. Start by asking about their day or who they live with.`;
         break;
     }
   }
 
-  const historyKey = `${
-    mode === "roleplay" ? roleplayTopic : "free-chat"
-  }-${language}`;
+  const historyKey = `${mode === "roleplay" ? roleplayTopic : "free-chat"}-${language}`;
   const historyForPrompt = (chatHistory[historyKey] || [])
     .slice(-10)
-    .map((item) => `Child: ${item.user}\nGenie: ${item.ai}`)
+    .map(item => `[INST] Child: ${item.user} [/INST] Genie: ${item.ai}`)
     .join("\n");
 
-  // 🔥 Language rule
-  let languageRule = "Respond in English.";
-  if (language === "hi-IN") languageRule = "Respond ONLY in Hindi (हिन्दी).";
-  if (language === "mr-IN") languageRule = "Respond ONLY in Marathi (मराठी).";
-  if (language === "gu-IN") languageRule = "Respond ONLY in Gujarati (ગુજરાતી).";
+  // 👇 Enforce Hindi if hi-IN is selected
+  const languageRule = language === "hi-IN"
+    ? "IMPORTANT: Always respond ONLY in Hindi (हिन्दी), using simple words a child can understand."
+    : "IMPORTANT: Always respond ONLY in English, using simple words a child can understand.";
 
-  return `You are SpeakGenie, a friendly tutor for kids (6–16).
-Role: ${roleDescription}
+  return `<s>[INST]
+You are SpeakGenie, a helpful and friendly AI tutor for children aged 6 to 16.
+Your current role is: "${roleDescription}".
 
-Rules:
-1. Keep answers short (1–2 sentences).
-2. Encourage and add emojis.
-3. Ask only one question at a time.
-4. ${languageRule}
+Follow these CRITICAL rules:
+1. Your entire response MUST be a complete thought in 1 or 2 short sentences.
+2. NEVER end your response mid-sentence.
+3. Stay in character and on topic.
+4. Encourage and use emojis.
+5. Only one question at a time.
+6. ${languageRule}
+7. Do NOT include any confidence scores, notes, or explanations. Plain conversation only.
 
-Conversation so far:
+### Conversation History ###
 ${historyForPrompt}
 
 Child: "${userText}"
+[/INST]
 Genie:`;
 };
 
-// Generate response
-export const generateAIResponse = async (
-  userText,
-  mode,
-  roleplayTopic,
-  language = "en-US"
-) => {
+
+/**
+ * Generate AI response using Together AI API
+ */
+export const generateAIResponse = async (userText, mode, roleplayTopic, language = "en-US") => {
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
     const prompt = buildPrompt(userText, mode, roleplayTopic, language);
 
-    const result = await model.generateContent(prompt);
+    const response = await axios.post(
+      `${togetherAiUrl}/chat/completions`,
+      {
+        model: "mistralai/Mixtral-8x7B-Instruct-v0.1",
+        max_tokens: 80,
+        prompt,
+        temperature: 0.7,
+        stop: ["</s>", "[INST]", "Child:"],
+      },
+      { headers: { ...togetherAiHeaders, "Content-Type": "application/json" } }
+    );
 
-    let aiText = result.response.text();
-    if (!aiText) aiText = "🤖 Sorry, I didn’t understand. Can you try again?";
-    aiText = aiText.trim();
+    let aiText = response.data.choices[0].text.trim();
+    // Remove any leftover markers or accidental notes
+    aiText = aiText.replace(/### New Message ###/g, '').trim();
 
-    const historyKey = `${
-      mode === "roleplay" ? roleplayTopic : "free-chat"
-    }-${language}`;
+    // Save to the appropriate chat history
+    const historyKey = `${mode === "roleplay" ? roleplayTopic : "free-chat"}-${language}`;
     chatHistory[historyKey] = [
       ...(chatHistory[historyKey] || []),
       { user: userText, ai: aiText },
     ];
 
     return aiText;
-  } catch (err) {
-    console.error("Gemini API Error:", err.message);
+  } catch (error) {
+    console.error("Error in generateAIResponse:", error.response?.data || error.message);
     throw new Error("AI response generation failed");
   }
 };
