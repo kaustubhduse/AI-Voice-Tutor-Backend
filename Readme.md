@@ -17,6 +17,9 @@
 9. [Deployment](#deployment)  
 10. [Project Structure](#project-structure)  
 11. [Diagram](#diagram)
+12. [Audio Workflow Diagram](#audio-workflow-diagram)
+13. [Functionality Overview](#functionality-overview)
+14. [Limitations](#limitations)
 
 ---
 
