@@ -8,6 +8,7 @@
 
 1. [Project Overview](#project-overview)  
 2. [Features](#features)  
+3. [Tech Stack](#tech-stack)
 3. [Project Flow](#project-flow)  
 4. [Requirements](#requirements)  
 5. [Installation](#installation)  
@@ -44,6 +45,26 @@ The backend allows children to interact with an AI English tutor through voice. 
 - Chat history management
 - Serverless-ready structure (optional)
 - Error handling and cleanup of temporary files
+
+---
+
+## Tech Stack
+
+# Backend
+- **Core:** Node.js, Express.js  
+- **Middleware:** CORS, Multer (for file uploads), Dotenv (for environment variables)  
+- **Audio Processing:** FFmpeg (via `fluent-ffmpeg` library)  
+- **API Communication:** Axios  
+- **AI Services:** Together AI  
+  - Whisper → Speech-to-Text (STT)  
+  - Mixtral → Chat / Conversation AI  
+
+# Frontend
+- **Core:** React.js  
+- **Styling:** Tailwind CSS  
+- **UI & Components:** Headless UI, Heroicons  
+- **Animation:** Framer Motion  
+- **Routing:** React Router  
 
 ---
 
